@@ -41,9 +41,25 @@ module.exports = function (app) {
       res.json(books);
     })
 
-    .post(function (req, res) {
-      const title = req.body.title;
+    .post(async (req, res) => {
+      const { title } = req.body;
       //response will contain new book object including atleast _id and title
+      if (!title) {
+        res.status(400).json({ error: 'missing title' });
+        return;
+      }
+
+      const db = (await client).db('library');
+
+      const { insertedId } = await db
+        .collection('books')
+        .insertOne({ title, comments: [] });
+
+      const book = await db
+        .collection('books')
+        .findOne({ _id: ObjectId(insertedId) });
+
+      res.status(201).json(book);
     })
 
     .delete(function (req, res) {
