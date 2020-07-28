@@ -9,17 +9,36 @@
 'use strict';
 
 const expect = require('chai').expect;
-const MongoClient = require('mongodb').MongoClient;
-const ObjectId = require('mongodb').ObjectId;
+const { MongoClient, ObjectId } = require('mongodb');
 const MONGODB_CONNECTION_STRING = process.env.DB;
 //Example connection: MongoClient.connect(MONGODB_CONNECTION_STRING, function(err, db) {});
+
+const loadDb = async (connectionString) => {
+  try {
+    const client = await MongoClient.connect(connectionString, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    return client;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+const client = loadDb(MONGODB_CONNECTION_STRING);
 
 module.exports = function (app) {
   app
     .route('/api/books')
-    .get(function (req, res) {
+    .get(async (req, res) => {
       //response will be array of book objects
       //json res format: [{"_id": bookid, "title": book_title, "commentcount": num_of_comments },...]
+      const db = (await client).db('library');
+
+      const books = await db.collection('books').find({}).toArray();
+
+      res.json(books);
     })
 
     .post(function (req, res) {
