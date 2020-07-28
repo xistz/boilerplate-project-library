@@ -62,8 +62,16 @@ module.exports = function (app) {
       res.status(201).json(book);
     })
 
-    .delete(function (req, res) {
+    .delete(async (req, res) => {
       //if successful response will be 'complete delete successful'
+      const db = (await client).db('library');
+
+      await Promise.all([
+        db.collection('books').deleteMany({}),
+        db.collection('comments').deleteMany({}),
+      ]);
+
+      res.status(204).end();
     });
 
   app
@@ -79,8 +87,14 @@ module.exports = function (app) {
       //json res format same as .get
     })
 
-    .delete(function (req, res) {
-      const bookid = req.params.id;
+    .delete(async (req, res) => {
+      const { id } = req.params;
       //if successful response will be 'delete successful'
+
+      const db = (await client).db('library');
+
+      await db.collection('books').deleteOne({ _id: ObjectId(id) });
+
+      res.status(204).end();
     });
 };

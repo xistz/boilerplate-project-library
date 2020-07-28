@@ -100,5 +100,40 @@ suite('Functional Tests', function () {
         });
       }
     );
+
+    suite('DELETE /api/books => no content', function () {
+      test('Test DELETE /api/book', function (done) {
+        chai
+          .request(server)
+          .delete('/api/books')
+          .end(function (err, res) {
+            assert.equal(res.status, 204);
+
+            done();
+          });
+      });
+    });
+
+    suite('DELETE /api/books/[id] => no content', function () {
+      test('Test DELETE /api/books/[id]', function (done) {
+        chai
+          .request(server)
+          .post('/api/books')
+          .send({ title: 'delete book' })
+          .end(function (err, res) {
+            const { _id } = res.body;
+
+            chai
+              .request(server)
+              .delete(`/api/books/${_id}`)
+              .end(function (err, res) {
+                assert.equal(res.status, 204);
+
+                // TODO GET
+                done();
+              });
+          });
+      });
+    });
   });
 });
