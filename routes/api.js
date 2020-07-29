@@ -28,6 +28,37 @@ const loadDb = async (connectionString) => {
 
 const client = loadDb(MONGODB_CONNECTION_STRING);
 
+const getBookWithComments = async (id) => {
+  const db = (await client).db('library');
+
+  return await db
+    .collection('books')
+    .aggregate([
+      { $match: { _id: ObjectId(id) } },
+      {
+        $lookup: {
+          from: 'comments',
+          localField: '_id',
+          foreignField: 'bookId',
+          as: 'comments',
+        },
+      },
+      {
+        $project: {
+          title: 1,
+          comments: {
+            $map: {
+              input: '$comments',
+              as: 'comment',
+              in: '$$comment.comment',
+            },
+          },
+        },
+      },
+    ])
+    .next();
+};
+
 module.exports = function (app) {
   app
     .route('/api/books')
@@ -73,20 +104,7 @@ module.exports = function (app) {
 
       const { insertedId } = await db.collection('books').insertOne({ title });
 
-      const book = await db
-        .collection('books')
-        .aggregate([
-          { $match: { _id: ObjectId(insertedId) } },
-          {
-            $lookup: {
-              from: 'comments',
-              localField: '_id',
-              foreignField: 'bookId',
-              as: 'comments',
-            },
-          },
-        ])
-        .next();
+      const book = await getBookWithComments(insertedId);
 
       res.status(201).json(book);
     })
@@ -110,20 +128,7 @@ module.exports = function (app) {
       //json res format: {"_id": bookid, "title": book_title, "comments": [comment,comment,...]}
       const db = (await client).db('library');
 
-      const book = await db
-        .collection('books')
-        .aggregate([
-          { $match: { _id: ObjectId(id) } },
-          {
-            $lookup: {
-              from: 'comments',
-              localField: '_id',
-              foreignField: 'bookId',
-              as: 'comments',
-            },
-          },
-        ])
-        .next();
+      const book = await getBookWithComments(id);
 
       if (!book) {
         res.status(404).json({ error: 'book not found' });
@@ -133,10 +138,30 @@ module.exports = function (app) {
       res.json(book);
     })
 
-    .post(function (req, res) {
-      const bookid = req.params.id;
-      const comment = req.body.comment;
+    .post(async (req, res) => {
+      const { id } = req.params;
+      const { comment } = req.body;
       //json res format same as .get
+
+      const db = (await client).db('library');
+
+      if (!(await db.collection('books').findOne({ _id: ObjectId(id) }))) {
+        res.status(404).json({ error: 'book not found' });
+        return;
+      }
+
+      if (!comment) {
+        res.status(400).json({ error: 'missing comment' });
+        return;
+      }
+
+      await db
+        .collection('comments')
+        .insertOne({ comment, bookId: ObjectId(id) });
+
+      const book = await getBookWithComments(id);
+
+      res.status(201).json(book);
     })
 
     .delete(async (req, res) => {
@@ -145,7 +170,10 @@ module.exports = function (app) {
 
       const db = (await client).db('library');
 
-      await db.collection('books').deleteOne({ _id: ObjectId(id) });
+      await Promise.all([
+        db.collection('books').deleteOne({ _id: ObjectId(id) }),
+        db.collection('comments').deleteMany({ bookId: ObjectId(id) }),
+      ]);
 
       res.status(204).end();
     });

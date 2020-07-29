@@ -132,6 +132,9 @@ suite('Functional Tests', function () {
                 assert.equal(res.body._id, _id);
                 assert.equal(res.body.title, 'valid id');
                 assert.property(res.body, 'comments');
+                res.body.comments.forEach((comment) => {
+                  assert.isString(comment);
+                });
 
                 done();
               });
@@ -143,7 +146,68 @@ suite('Functional Tests', function () {
       'POST /api/books/[id] => add comment/expect book object with id',
       function () {
         test('Test POST /api/books/[id] with comment', function (done) {
-          //done();
+          chai
+            .request(server)
+            .post('/api/books')
+            .send({ title: 'with comments' })
+            .end(function (err, res) {
+              const { _id } = res.body;
+
+              chai
+                .request(server)
+                .post(`/api/books/${_id}`)
+                .send({
+                  comment: 'test comment',
+                })
+                .end(function (err, res) {
+                  assert.equal(res.status, 201);
+                  assert.equal(res.body._id, _id);
+                  assert.equal(res.body.title, 'with comments');
+                  assert.property(res.body, 'comments');
+                  res.body.comments.forEach((comment) => {
+                    assert.isString(comment);
+                  });
+                  assert.equal(res.body.comments[0], 'test comment');
+
+                  done();
+                });
+            });
+        });
+
+        test('Test POST /api/books/[id] with comment but id not in db', function (done) {
+          chai
+            .request(server)
+            .post('/api/books/5f20dece8df570006c6739ee')
+            .send({
+              comment: 'test comment',
+            })
+            .end(function (err, res) {
+              assert.equal(res.status, 404);
+              assert.equal(res.body.error, 'book not found');
+
+              done();
+            });
+        });
+
+        test('Test POST /api/books/[id] with no comment given', function (done) {
+          chai
+            .request(server)
+            .post('/api/books')
+            .send({ title: 'with comments' })
+            .end(function (err, res) {
+              const { _id } = res.body;
+
+              chai
+                .request(server)
+                .post(`/api/books/${_id}`)
+                .send({})
+                .end(function (err, res) {
+                  assert.equal(res.status, 400);
+                  assert.equal(res.body.error, 'missing comment');
+
+                  done();
+                });
+            });
         });
       }
     );
