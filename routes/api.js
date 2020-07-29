@@ -40,6 +40,14 @@ module.exports = function (app) {
         .collection('books')
         .aggregate([
           {
+            $lookup: {
+              from: 'comments',
+              localField: '_id',
+              foreignField: 'bookId',
+              as: 'comments',
+            },
+          },
+          {
             $project: {
               commentcount: {
                 $size: '$comments',
@@ -63,13 +71,22 @@ module.exports = function (app) {
 
       const db = (await client).db('library');
 
-      const { insertedId } = await db
-        .collection('books')
-        .insertOne({ title, comments: [] });
+      const { insertedId } = await db.collection('books').insertOne({ title });
 
       const book = await db
         .collection('books')
-        .findOne({ _id: ObjectId(insertedId) });
+        .aggregate([
+          { $match: { _id: ObjectId(insertedId) } },
+          {
+            $lookup: {
+              from: 'comments',
+              localField: '_id',
+              foreignField: 'bookId',
+              as: 'comments',
+            },
+          },
+        ])
+        .next();
 
       res.status(201).json(book);
     })
@@ -88,9 +105,32 @@ module.exports = function (app) {
 
   app
     .route('/api/books/:id')
-    .get(function (req, res) {
-      const bookid = req.params.id;
+    .get(async (req, res) => {
+      const { id } = req.params;
       //json res format: {"_id": bookid, "title": book_title, "comments": [comment,comment,...]}
+      const db = (await client).db('library');
+
+      const book = await db
+        .collection('books')
+        .aggregate([
+          { $match: { _id: ObjectId(id) } },
+          {
+            $lookup: {
+              from: 'comments',
+              localField: '_id',
+              foreignField: 'bookId',
+              as: 'comments',
+            },
+          },
+        ])
+        .next();
+
+      if (!book) {
+        res.status(404).json({ error: 'book not found' });
+        return;
+      }
+
+      res.json(book);
     })
 
     .post(function (req, res) {

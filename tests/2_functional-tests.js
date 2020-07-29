@@ -105,11 +105,37 @@ suite('Functional Tests', function () {
 
     suite('GET /api/books/[id] => book object with [id]', function () {
       test('Test GET /api/books/[id] with id not in db', function (done) {
-        //done();
+        chai
+          .request(server)
+          .get('/api/books/5f20dece8df570006c6739ee')
+          .end(function (err, res) {
+            assert.equal(res.status, 404);
+            assert.equal(res.body.error, 'book not found');
+
+            done();
+          });
       });
 
       test('Test GET /api/books/[id] with valid id in db', function (done) {
-        //done();
+        chai
+          .request(server)
+          .post('/api/books')
+          .send({ title: 'valid id' })
+          .end(function (err, res) {
+            const { _id } = res.body;
+
+            chai
+              .request(server)
+              .get(`/api/books/${_id}`)
+              .end(function (err, res) {
+                assert.equal(res.status, 200);
+                assert.equal(res.body._id, _id);
+                assert.equal(res.body.title, 'valid id');
+                assert.property(res.body, 'comments');
+
+                done();
+              });
+          });
       });
     });
 
