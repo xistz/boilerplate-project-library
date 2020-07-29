@@ -36,7 +36,19 @@ module.exports = function (app) {
       //json res format: [{"_id": bookid, "title": book_title, "commentcount": num_of_comments },...]
       const db = (await client).db('library');
 
-      const books = await db.collection('books').find({}).toArray();
+      const books = await db
+        .collection('books')
+        .aggregate([
+          {
+            $project: {
+              commentcount: {
+                $size: '$comments',
+              },
+              title: 1,
+            },
+          },
+        ])
+        .toArray();
 
       res.json(books);
     })

@@ -78,7 +78,28 @@ suite('Functional Tests', function () {
 
     suite('GET /api/books => array of books', function () {
       test('Test GET /api/books', function (done) {
-        //done();
+        chai
+          .request(server)
+          .get('/api/books')
+          .end(function (err, res) {
+            assert.equal(res.status, 200);
+            assert.isArray(res.body, 'response should be an array');
+            res.body.forEach((book) => {
+              assert.property(
+                book,
+                'commentcount',
+                'Books in array should contain commentcount'
+              );
+              assert.property(
+                book,
+                'title',
+                'Books in array should contain title'
+              );
+              assert.property(book, '_id', 'Books in array should contain _id');
+            });
+
+            done();
+          });
       });
     });
 
